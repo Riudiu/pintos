@@ -28,6 +28,8 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -95,7 +97,7 @@ static uint64_t gdt[3] = { 0, 0x00af9a000000ffff, 0x00cf92000000ffff };
 void
 thread_init (void) {
 	ASSERT (intr_get_level () == INTR_OFF);
-
+	
 	/* Reload the temporal gdt for the kernel
 	 * This gdt does not include the user context.
 	 * The kernel will rebuild the gdt with user context, in gdt_init (). */
@@ -108,6 +110,7 @@ thread_init (void) {
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
+	list_init (&sleep_list);
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -294,18 +297,63 @@ thread_exit (void) {
 
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
+// 기본적으로 절전 시간을 호출하는 프로세스가 준비상태와 실행상태 사이를 전환
+// CPU를 해제, 다른 스레드가 돌아갈 수 있도록 양보
 void
 thread_yield (void) {
+	//스레드 구조에 대한 포인터 얻기
+	struct thread *curr = thread_current ();
+	enum intr_level old_level;
+
+	ASSERT (!intr_context ());
+
+	old_level = intr_disable (); //인터럽트 비활성화
+	if (curr != idle_thread)
+		list_push_back (&ready_list, &curr->elem);  //현재 구조를 작성된 목록의 끝에 배치
+
+	//현재 실행중인 스레드의 상태를 스레드 준비 상태로 변경 및 컨텍스트 전환
+	do_schedule (THREAD_READY); 
+	//인터럽트를 원래 상태로 다시 설정
+	intr_set_level (old_level);
+}
+
+/* The function that sets thread state to blocked 
+   and wait after insert it to sleep queue. */
+// 스레드 상태를 차단으로 설정하고 sleep queue에 삽입 후 대기하는 기능
+void
+thread_sleep(int64_t ticks) {
 	struct thread *curr = thread_current ();
 	enum intr_level old_level;
 
 	ASSERT (!intr_context ());
 
 	old_level = intr_disable ();
-	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
-	do_schedule (THREAD_READY);
+	if (curr != idle_thread) {
+		curr->tick_to_wake = ticks;  // 시간 저장
+		list_push_back (&sleep_list, &curr->elem);  //move to sleep list
+		thread_block();  //스레드의 상태를 블록 상태로 변경
+	}
+
 	intr_set_level (old_level);
+}
+
+/* The function that find the thread to wake up 
+   from sleep queue and wake up it */
+// sleep queue에서 깨어날 쓰레드를 찾아서 깨워주는 기능
+void
+thread_wakeup (int64_t ticks) {
+	struct list_elem *curr;
+	curr = list_begin(&sleep_list);
+	
+	while(curr != list_end(&sleep_list)) {
+		struct thread *t = list_entry (curr, struct thread, elem);
+		if(ticks >= t->tick_to_wake) {
+			curr = list_remove(curr);  //remove from sleep list
+			thread_unblock(t);  //move to ready list
+		} else {
+			curr = list_next(curr);
+		}
+	}
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */

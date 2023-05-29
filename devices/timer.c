@@ -90,11 +90,13 @@ timer_elapsed (int64_t then) {
 /* Suspends execution for approximately TICKS timer ticks. */
 void
 timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks ();
-
+	int64_t start = timer_ticks ();  //현재 시간 기록
 	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+
+	//경과 시간이 틱보다 작은 경우
+	if (timer_elapsed (start) < ticks)
+		// thread_yield ();  
+		thread_sleep(start + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -126,6 +128,14 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
 	thread_tick ();
+
+	/* code to add: 
+		sleep list와 전역 체크 표시를 확인.
+		wake up 할수있는 스레드를 찾고,
+		필요하다면 이것들을 ready list로 이동시킨다.
+		global tick 업데이트.
+	*/
+	thread_wakeup(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
