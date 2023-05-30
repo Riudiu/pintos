@@ -65,6 +65,10 @@ static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
 
+void test_max_priority (void);
+bool compare_priority(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
+
+
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
 
@@ -210,6 +214,13 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 
+	/* If the new thread has a higher priority than the running thread, 
+	   call schedule() -> current thread yields CPU control */
+	struct thread *curr = thread_current ();
+	if (t->priority > curr->priority) {
+		thread_yield();
+	}
+
 	return tid;
 }
 
@@ -243,7 +254,11 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+
+	// list_push_back (&ready_list, &t->elem);
+	//When adding threads to ready_list, add them according to priority
+	list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL); 
+
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -309,7 +324,7 @@ thread_yield (void) {
 
 	old_level = intr_disable (); //인터럽트 비활성화
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);  //현재 구조를 작성된 목록의 끝에 배치
+		list_insert_ordered(&ready_list, &curr->elem, compare_priority, NULL); 
 
 	//현재 실행중인 스레드의 상태를 스레드 준비 상태로 변경 및 컨텍스트 전환
 	do_schedule (THREAD_READY); 
@@ -360,6 +375,10 @@ thread_wakeup (int64_t ticks) {
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+
+	if(!list_empty(&ready_list)) {
+		test_max_priority();
+	}
 }
 
 /* Returns the current thread's priority. */
@@ -635,4 +654,32 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+/* Compare the priority of the current thread 
+   with the highest priority thread on ready_list,
+   if the current thread has a smaller priority, 
+   Call thread_yield() */
+void 
+test_max_priority(void) {
+	struct thread *curr = thread_current ();
+	struct thread *highest_priority = list_front (&ready_list);
+	if (highest_priority->priority > curr->priority) {
+		thread_yield();
+	}
+}
+
+/* Returns 1 if the first factor has a high priority, 
+   0 if the second factor has a high priority */
+bool
+compare_priority(
+	struct list_elem *a, 
+	struct list_elem *b, 
+	void *aux UNUSED
+) {
+	struct thread * thread_a = list_entry(a, struct thread, elem);
+  	struct thread * thread_b = list_entry(b, struct thread, elem);
+	if (thread_a->priority > thread_b->priority) 
+		return true;
+	else
+		return false;
 }
