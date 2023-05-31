@@ -139,6 +139,9 @@ void thread_wakeup (int64_t ticks);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
+void test_max_priority (void);
+bool compare_priority(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
+
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
