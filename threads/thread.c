@@ -370,7 +370,8 @@ thread_wakeup (int64_t ticks) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	thread_current ()->priority = new_priority;
+	thread_current ()->init_priority = new_priority;
+	refresh_priority();
 	test_max_priority();
 }
 
@@ -468,7 +469,10 @@ init_thread (struct thread *t, const char *name, int priority) {
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
+	t->init_priority = priority;
 	t->magic = THREAD_MAGIC;
+	t->wait_on_lock = NULL;
+	list_init(&t->donations);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -677,4 +681,73 @@ compare_priority(
 		return 1;
 	else
 		return 0;
+}
+
+bool
+compare_donate_priority (
+	struct list_elem *a, 
+	struct list_elem *b, 
+	void *aux UNUSED
+) {
+	return list_entry (a, struct thread, d_elem)->priority
+		 > list_entry (b, struct thread, d_elem)->priority;
+}
+
+/* 현재 쓰레드가 기다리고 있는 lock과 연결된 모든 쓰레드들을 순회하며,
+   현재 쓰레드의 우선순위를 lock을 보유하고 있는 쓰레드에게 기부 */
+void 
+donate_priority(void) {
+	int depth;
+    struct thread *curr = thread_current();
+    
+	// Thread traverses connected to a lock that the thread is currently waiting for
+    for (depth = 0; depth < 8; depth++) {  // Nested depth limited to 8
+    	if (!curr->wait_on_lock) // Exit if there is no lock waiting
+        	break;
+
+		// Donate the priority of the current thread to the thread that holds the lock
+        struct thread *holder = curr->wait_on_lock->holder;
+        holder->priority = curr->priority;
+        curr = holder;
+    }
+}
+
+// lock을 해지 했을 때, waiters 리스트에서 해당 엔트리를 삭제 하기 위한 함수를 구현
+/* Implement a function to delete the entry 
+   from the waiters list when cancel the lock */
+void 
+remove_with_lock (struct lock *lock) {
+	struct list_elem *e;
+	struct thread *curr = thread_current ();
+
+	// 현재 쓰레드의 waiters 리스트를 확인하여 해지할 lock을 보유하고 있는 엔트리를 삭제
+	// Check the waiters list in the current thread 
+	// to delete the entry that holds the lock to be revoked
+	for (e = list_begin (&curr->donations); e != list_end (&curr->donations); e = list_next (e)){
+		struct thread *t = list_entry (e, struct thread, d_elem);
+		if (t->wait_on_lock == lock)
+			list_remove (&t->d_elem);
+	}
+}
+
+// 스레드의 우선순위가 변경 되었을 때, donation을 고려하여 우선순위를 다시 결정하는 함수
+/* Function that determines the priority again by considering donation 
+   when the priority of a thread is changed */
+void
+refresh_priority (void) {
+	struct thread *curr = thread_current ();
+
+	// Change the priority of the current thread to the priority before it is donated
+	curr->priority = curr->init_priority;
+	
+	if (!list_empty (&curr->donations)) {
+		list_sort (&curr->donations, compare_donate_priority, 0);
+
+		// 현재 쓰레드의 waiters 리스트에서 가장 높은 우선순위를 현재 쓰레드의 우선순위와 비교
+		// Compare the highest priority in the waiters list of the current thread 
+		// with the priority of the current thread
+		struct thread *front = list_entry (list_front (&curr->donations), struct thread, d_elem);
+		if (front->priority > curr->priority)
+			curr->priority = front->priority;  // Set the priority of the current thread
+	}
 }

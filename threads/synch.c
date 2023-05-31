@@ -221,6 +221,14 @@ lock_acquire (struct lock *lock) {
  	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
+	if (lock->holder) {
+		struct thread *curr = thread_current ();
+		curr->wait_on_lock = lock;
+		list_insert_ordered(&lock->holder->donations, &curr->d_elem, 
+			compare_donate_priority, 0);
+    	donate_priority(); 
+	}
+
 	sema_down (&lock->semaphore);
 	lock->holder = thread_current ();
 }
@@ -254,6 +262,11 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
+
+	// Update the waiting list of the current thread after breaking the lock
+	remove_with_lock(lock);
+	// Initialize to original priority because priority may have been donated
+  	refresh_priority();
 
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);
