@@ -14,7 +14,7 @@ AWS EC2 Ubuntu 18.04 (x86_64)
     $ sudo apt update
     $ sudo apt install -y gcc make qemu-system-x86 python3
 
-## CH1. Alarm clock, Priority Scheduling
+## PJ1. Alarm clock, Priority Scheduling
 
 제대로 동작되는지 테스트 결과 확인
 
@@ -32,6 +32,7 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 
 <img width="927" alt="스크린샷 2023-06-05 오전 11 01 05" src="https://github.com/Riudiu/pintos/assets/86466976/4bff3c57-77e0-49db-b572-02d5888cf58b">
 
+
 ### Priority Scheduling
 
 - 기존 핀토스의 스케줄러는 라운드 로빈으로 구현되어 있습니다. 
@@ -39,6 +40,7 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 - 이를 우선순위를 고려하여 스케줄링 하도록 수정하는 것이 목표입니다.
 
 ![스크린샷 2023-06-05 오전 11 13 56](https://github.com/Riudiu/pintos/assets/86466976/1877700d-2692-4bdd-9634-a93b4bf97bc9)
+
 
 ### Priority Inversion Problem
 
@@ -64,6 +66,7 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 - 프로그램 이름과 인자를 구분하여(받은 문자열을 parsing후 argv, argc에 저장) 스택에 저장하고, 인자를 응용 프로그램에 전달하는 기능을 구현하는 것이 목표입니다. 
 
 ![image](https://github.com/Riudiu/pintos/assets/86466976/6e7faaf8-fe14-49d1-b242-748cdb9c08a3)
+
 
 ### System Call
 
