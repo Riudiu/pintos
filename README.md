@@ -49,3 +49,28 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 - Priority donation 구현하여 lock을 보유한 낮은 우선순위의 thread에게 자신의 우선순위를 기부하도록 합니다. 그리고 lock이 풀리면 기부한 우선순위를 다시 가져오도록 구현하는 것이 목표입니다.
 
 ![스크린샷 2023-06-05 오전 11 23 59](https://github.com/Riudiu/pintos/assets/86466976/993b2e64-4ddc-4b04-a514-ad12890639a7)
+
+## PJ2. User Programs
+
+제대로 동작되는지 테스트 결과 확인
+
+    $ source ./activate
+    $ cd userprog
+    $ make check
+
+### Argument Passing
+
+- 핀토스는 프로그램과 인자(argument)를 구분하지 못하는 구조를 가지고 있습니다. 
+- 프로그램 이름과 인자를 구분하여(받은 문자열을 parsing후 argv, argc에 저장) 스택에 저장하고, 인자를 응용 프로그램에 전달하는 기능을 구현하는 것이 목표입니다. 
+
+![image](https://github.com/Riudiu/pintos/assets/86466976/6e7faaf8-fe14-49d1-b242-748cdb9c08a3)
+
+### System Call
+
+- 핀토스는 일반적인 os와 달리 스레드가 곧 user_program인 간단한 모델을 사용하고 있습니다. 
+- 시스템 콜(System Call)은 컴퓨터 운영체제(OS)의 커널에 제공되는 인터페이스로, 응용 프로그램은 시스템 콜을 통해 운영체제에게 서비스를 요청하고 운영체제는 이러한 요청을 수행하여 응용 프로그램에 필요한 작업을 수행합니다.
+- 시스템 콜(halt, exit, create, remove 등등)을 구현하고, 시스템 콜 핸들러를 통해 호출하도록 하는 것이 목표입니다.
+
+<img width="923" alt="스크린샷 2023-06-12 오전 4 39 22" src="https://github.com/Riudiu/pintos/assets/86466976/ddddd311-5739-41b3-bfa5-c3311024d867">
+
+<img width="957" alt="스크린샷 2023-06-12 오전 4 42 36" src="https://github.com/Riudiu/pintos/assets/86466976/c22f697d-fecc-458a-abda-34b7887249cb">
