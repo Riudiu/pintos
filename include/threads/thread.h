@@ -105,10 +105,6 @@ struct thread {
 	struct list donations;
 	struct list_elem d_elem;
 
-	int exit_status;
-	struct file **fd_table;         /* file descriptor table의 시작주소 */
-    int fd_idx;                     /* fd table open spot index */
-
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
