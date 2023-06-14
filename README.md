@@ -64,7 +64,7 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 
 ### Argument Passing
 
-- 핀토스는 프로그램과 인자(argument)를 구분하지 못하는 구조를 가지고 있습니다. 
+- 핀토스는 프로그램과 인자(argument)를 구분하지 못하는 구조를 가지고 있습니다. 즉 적은 명령어 전체를 하나의 프로그램으로 인식하게 구현되어 있습니다.
 - 프로그램 이름과 인자를 구분하여(받은 문자열을 parsing후 argv, argc에 저장) 스택에 저장하고, 인자를 응용 프로그램에 전달하는 기능을 구현하는 것이 목표입니다. 
 
 ![image](https://github.com/Riudiu/pintos/assets/86466976/6e7faaf8-fe14-49d1-b242-748cdb9c08a3)
@@ -79,3 +79,17 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 <img width="923" alt="스크린샷 2023-06-12 오전 4 39 22" src="https://github.com/Riudiu/pintos/assets/86466976/ddddd311-5739-41b3-bfa5-c3311024d867">
 
 <img width="957" alt="스크린샷 2023-06-12 오전 4 42 36" src="https://github.com/Riudiu/pintos/assets/86466976/c22f697d-fecc-458a-abda-34b7887249cb">
+
+## PJ3. Virtual Memory
+
+제대로 동작되는지 테스트 결과 확인
+
+    $ source ./activate
+    $ cd vm
+    $ make check
+
+### Memory Management
+
+
+
+## PJ4. File System

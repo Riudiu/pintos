@@ -221,8 +221,9 @@ lock_acquire (struct lock *lock) {
  	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
+	struct thread *curr = thread_current ();
+
 	if (lock->holder) {
-		struct thread *curr = thread_current ();
 		curr->wait_on_lock = lock;
 		list_insert_ordered(&lock->holder->donations, &curr->d_elem, 
 			compare_donate_priority, 0);
@@ -230,6 +231,7 @@ lock_acquire (struct lock *lock) {
 	}
 
 	sema_down (&lock->semaphore);
+	curr->wait_on_lock = NULL;
 	lock->holder = thread_current ();
 }
 

@@ -350,8 +350,9 @@ process_exit (void) {
 		if (curr->fd_table[i] != NULL)
 			close(i);
 	}
+	// for multi-oom(메모리 누수)
 	palloc_free_multiple(curr->fd_table, FDT_PAGES);
-	file_close(curr->running); 
+	file_close(curr->running);  // for rox- (실행중에 수정 못하도록)
 
 	process_cleanup();
 
