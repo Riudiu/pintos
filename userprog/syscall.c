@@ -129,12 +129,14 @@ syscall_handler (struct intr_frame *f UNUSED) {
 /// Helper Functions
 /* 유저 영역에서 사용하는 주소값인지 확인 */
 void check_address(void *addr) {
-    // 현재 접근하는 메모리 주소가 NULL이거나, 커널 영역에서 사용하는 주소이거나, 유저 영역에서 사용하는 주소이지만 페이지로 할당되지 않은 주소일 경우(=잘못된 접근)
-	if (addr == NULL || is_kernel_vaddr(addr) 
-			|| pml4_get_page (thread_current ()->pml4, addr) == NULL) 
-	{
-		exit(-1); // 프로세스 종료
-	}
+    // 현재 접근하는 메모리 주소가 NULL이거나, 커널 영역에서 사용하는 주소이거나, 
+	if (addr == NULL)
+		exit(-1);  // 프로세스 종료
+	if (!is_user_vaddr(addr))
+		exit(-1);
+	// 유저 영역에서 사용하는 주소이지만 페이지로 할당되지 않은 주소일 경우(=잘못된 접근)
+	// if (pml4_get_page(thread_current()->pml4, addr) == NULL)
+	// 	exit(-1);
 }
 static struct file *find_file_by_fd(int fd) {
     struct thread *curr = thread_current();

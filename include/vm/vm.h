@@ -49,7 +49,7 @@ struct page {
 
 	/* Your implementation */
 	struct hash_elem hash_elem;
-	bool writable;
+	bool writable; 
 	int mapped_page_count;  // 매핑에 사용한 페이지 개수 (매핑 해제 시 사용)
 
 	/* Per-type data are binded into the union.
@@ -69,6 +69,13 @@ struct frame {
 	void *kva;  // kernel virtual address
 	struct page *page;
 	struct list_elem frame_elem;
+};
+
+struct slot
+{
+	struct page *page;
+	uint32_t slot_no;
+	struct list_elem swap_elem;
 };
 
 /* The function table for page operations.
@@ -118,8 +125,12 @@ enum vm_type page_get_type (struct page *page);
 
 unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED);
 bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+void hash_page_destroy(struct hash_elem *e, void *aux);
 
 struct list frame_table;
-struct list frame_table_lock;
+struct lock frame_table_lock;
+
+struct list swap_table;
+struct lock swap_table_lock;
 
 #endif  /* VM_VM_H */

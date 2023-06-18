@@ -7,7 +7,7 @@ The manual is available at https://casys-kaist.github.io/pintos-kaist/.
 - [KAIST Pintos Slide Set](https://oslab.kaist.ac.kr/pintosslides/)
 - [한양대 핀토스 강의 자료](http://broadpeak.kaist.ac.kr/wiki/dmcweb/download/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C_%EC%8B%A4%EC%8A%B5_%EA%B0%95%EC%9D%98%EC%9E%90%EB%A3%8C.pdf)
 
-### 테스트 환경
+### 개발 및 테스트 환경
 
 AWS EC2 Ubuntu 18.04 (x86_64)
 
@@ -90,6 +90,22 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 
 ### Memory Management
 
+- Pintos는 가상 및 물리적 메모리 매핑을 관리하기 위한 페이지 테이블(pml4)을 가지고 있습니다. pml4 이외에 추가로, page fault 및 리소스 관리를 처리하기 위해 supplementary page table이 필요합니다.
+- 그리고 모든 page는 메모리가 구성될 때 메모리에 대한 메타 데이터를 보유하고 있지 않습니다. 따라서 물리적 메모리를 관리하기 위해서는 다른 체계가 필요합니다.
+- 해시 테이블을 이용해서 supplementary page table을 구현하고, 물리 메모리 내 각 프레임 정보를 갖고 있는 frame table을 구현하여 메모리 관리 인터페이스를 만드는 것이 목표입니다. 
 
+![스크린샷 2023-06-17 오후 1 51 29](https://github.com/Riudiu/pintos/assets/86466976/6bfbac0e-6eec-459b-aa1e-0491aac4943e)
+
+구현 후 대략적인 layout (vm_entry -> page)
+
+<img width="935" alt="스크린샷 2023-06-17 오후 4 50 49" src="https://github.com/Riudiu/pintos/assets/86466976/0e35dbad-7a96-4e48-b919-08779f06605a">
+
+### Anonymous Page
+
+- Anonymous page는 프로세스의 heap 또는 stack에 할당되었지만 disk의 특정 파일과 연결되지 않은 메모리 페이지를 나타냅니다. 즉 file-backed page와 달리 contents를 가져올 file이나 device가 없는 page를 말합니다. 또한 디스크에 저장된 데이터를 갖고 있지 않으므로, 해당 페이지를 물리적 메모리에 로드할 필요가 없습니다.
+- project 2까지의 Pintos는 프로세스가 실행될 때 segment를 physical memory에 직접 load하는 방식을 사용합니다. 처음에 물리 frame부터 할당을 받고 파일을 해당 frame에 load한 다음, 페이지 테이블에서 가상 주소와 물리 주소를 맵핑하는 방식입니다. 즉 프로그램의 모든 segment에 대해 physical page를 할당하고 있습니다. 그래서 page fault가 발생하면 강제 종료가 됩니다. 
+- 따라서 앞서 구현한 spt에 필요한 정보를 넣어서 page fault가 발생했을 때(페이지가 필요한 경우에만) 메모리에 load하는 방식인 lazy load 방식으로 구현하는 것이 이번 목표입니다. 
+
+![151002575-fd39dad3-3a60-454a-b801-d4e3bb96b14c](https://github.com/Riudiu/pintos/assets/86466976/0cc5512b-1396-4e75-8ff7-2c7441407bd5)
 
 ## PJ4. File System
