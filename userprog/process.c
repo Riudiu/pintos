@@ -108,9 +108,9 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	struct thread *child = get_child_with_pid(tid);  // child_list안에서 만들어진 child thread를 찾음
     sema_down(&child->load_sema);                    // 자식이 메모리에 load 될때까지 기다림(blocked)
 	
-    if (child->exit_status == -2) {
-        list_remove (&child->child_elem);     // 자식이 종료되었으므로 자식 리스트에서 제거
-		sema_up (&child->exit_sema);          // 자식이 종료되고 스케줄링이 이어질 수 있도록 부모에게 시그널 전송
+    if (child->exit_status == TID_ERROR) {
+        // list_remove (&child->child_elem);     // 자식이 종료되었으므로 자식 리스트에서 제거
+		// sema_up (&child->exit_sema);          // 자식이 종료되고 스케줄링이 이어질 수 있도록 부모에게 시그널 전송
 		return TID_ERROR;
     }
 	return tid;

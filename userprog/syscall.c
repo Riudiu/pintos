@@ -76,7 +76,10 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	// 함수 return 값에 대한 x86-64 convention은 이 값을 rax레지스터에 배치하는 것이다.
     // 값을 반환하는 system call은 struct int_frame의 rax 멤버를 수정함으로써 convention을 지킨다.
 	// printf("SYSCALL_NUM: %d\n", f->R.rax);
+#ifdef VM
+	thread_current()->rsp = f->rsp;
 	
+#endif 
 	switch (f->R.rax) { // rax is system call number
 		case SYS_HALT:
 			halt();

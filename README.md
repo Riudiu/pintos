@@ -108,4 +108,12 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 
 ![151002575-fd39dad3-3a60-454a-b801-d4e3bb96b14c](https://github.com/Riudiu/pintos/assets/86466976/0cc5512b-1396-4e75-8ff7-2c7441407bd5)
 
+### Stack Growth
+
+- 현재 핀토스에서 사용하는 스택은 USER_STACK을 시작으로 하는 단일 페이지였으며, 프로그램의 실행은 이 크기로 제한되어 있습니다.
+- Stack Growth를 구현하여 page fault가 발생했을 때 접근한 가상 주소가 stack 안에 있는지 판별하고, stack에 접근한 경우 stack이 현재 크기를 초과하면 추가 페이지를 할당하도록 합니다.
+
+![스크린샷 2023-06-21 오후 5 17 32](https://github.com/Riudiu/pintos/assets/86466976/2ddf411d-673c-44c3-b666-b2691b3fcc4c)
+
+
 ## PJ4. File System
