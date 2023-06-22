@@ -24,9 +24,9 @@ void remove_file_from_fdt(int fd);
 
 void halt (void) NO_RETURN;
 void exit (int status) NO_RETURN;
-tid_t fork (const char *thread_name, struct intr_frame *f);
+int fork (const char *thread_name, struct intr_frame *f);
 int exec (const char *file);
-int wait (tid_t);
+int wait (int pid);
 bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
 int open (const char *file);
@@ -34,8 +34,11 @@ int filesize (int fd);
 int read (int fd, void *buffer, unsigned size);
 int write (int fd, const void *buffer, unsigned size);
 void seek (int fd, unsigned position);
-unsigned tell (int fd);
+off_t tell (int fd);
 void close (int fd);
+
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap(void *addr);
 
 struct file {
 	struct inode *inode;        /* File's inode. */
@@ -123,6 +126,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CLOSE:
 			close(f->R.rdi);
 			break;
+		case SYS_MMAP:
+			f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+			break;
+		case SYS_MUNMAP:
+			munmap(f->R.rdi);
+			break;
 		default:
 			exit(-1);
 			break;
@@ -143,7 +152,7 @@ void check_address(void *addr) {
 }
 static struct file *find_file_by_fd(int fd) {
     struct thread *curr = thread_current();
-    if (fd < 2 || fd >= FDT_COUNT_LIMIT) {
+    if (fd < 0 || fd >= FDT_COUNT_LIMIT) {
         return NULL;
     }
     return curr->fd_table[fd];
@@ -172,7 +181,7 @@ int add_file_to_fdt(struct file *file) {
 void remove_file_from_fdt(int fd) {
     struct thread *curr = thread_current();
 	struct file **fdt = curr->fd_table;
-	if (fd < 2 || fd >= FDT_COUNT_LIMIT)
+	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
 		return NULL;
 	fdt[fd] = NULL;
 }
@@ -193,7 +202,7 @@ exit (int status) {
 }
 
 /* Create a child process from the parent process that invoked the system call */
-tid_t
+int
 fork (const char *thread_name, struct intr_frame *f) {
 	return process_fork(thread_name, f);
 }
@@ -218,8 +227,8 @@ exec (const char *file) {
 /* Wait for all child processes to exit, 
    and verify that the child process has exited correctly */
 int
-wait (tid_t tid) {
-	return process_wait(tid);
+wait (int pid) {
+	return process_wait(pid);
 }
 
 /* Create a file. Returns true if file creation is successful and false if it fails.  */
@@ -330,7 +339,7 @@ seek (int fd, unsigned position) {
 }
 
 /* Tells the current location of the file */
-unsigned
+off_t
 tell (int fd) {
 	struct file *tell_file = find_file_by_fd(fd);
 	if (tell_file == NULL) return;
@@ -344,4 +353,33 @@ close (int fd) {
 	if (file == NULL) return;
 	file_close(file);
 	remove_file_from_fdt(fd);
+}
+
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
+{
+	if (!addr || addr != pg_round_down(addr))
+		return NULL;
+
+	if (offset != pg_round_down(offset))
+		return NULL;
+
+	if (!is_user_vaddr(addr) || !is_user_vaddr(addr + length))
+		return NULL;
+
+	if (spt_find_page(&thread_current()->spt, addr))
+		return NULL;
+
+	struct file *file = find_file_by_fd(fd);
+	if (file == NULL)
+		return NULL;
+
+	if (file_length(file) == 0 || (int)length <= 0)
+		return NULL;
+
+	return do_mmap(addr, length, writable, file, offset); // 파일이 매핑된 가상 주소 반환
+}
+
+void munmap(void *addr)
+{
+	do_munmap(addr);
 }

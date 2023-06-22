@@ -19,7 +19,7 @@ vm_init (void) {
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
 	list_init(&frame_table);
-	// lock_init(&frame_table_lock);
+	lock_init(&frame_table_lock);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -119,25 +119,25 @@ vm_get_victim (void) {
 	 /* TODO: The policy for eviction is up to you. */
 	struct thread *curr = thread_current();
 
-	// lock_acquire(&frame_table_lock);
+	lock_acquire(&frame_table_lock);
     struct list_elem *start = list_begin(&frame_table);
 
 	for (start; start != list_end(&frame_table); start = list_next(start)) 
 	{
 		victim = list_entry(start, struct frame, frame_elem);
 		if (victim->page == NULL) {
-			// lock_release(&frame_table_lock);
+			lock_release(&frame_table_lock);
 			return victim;
 		}
 		if (pml4_is_accessed(curr->pml4, victim->page->va))
 			pml4_set_accessed(curr->pml4, victim->page->va, 0);
 		else
 		{
-			// lock_release(&frame_table_lock);
+			lock_release(&frame_table_lock);
 			return victim;
 		}
 	}
-	// lock_release(&frame_table_lock);
+	lock_release(&frame_table_lock);
 	return victim;
 }
 
@@ -169,9 +169,9 @@ vm_get_frame (void) {
         frame->page = NULL;
         return frame;
 	}
-	// lock_acquire(&frame_table_lock);
+	lock_acquire(&frame_table_lock);
 	list_push_back(&frame_table, &frame->frame_elem);
-	// lock_release(&frame_table_lock);
+	lock_release(&frame_table_lock);
 	frame->page = NULL;
 
 	ASSERT (frame != NULL);

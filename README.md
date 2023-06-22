@@ -115,5 +115,21 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 
 ![스크린샷 2023-06-21 오후 5 17 32](https://github.com/Riudiu/pintos/assets/86466976/2ddf411d-673c-44c3-b666-b2691b3fcc4c)
 
+### Memory Mapped Files
+
+- 이번에는 memory-mapped page를 구현합니다. Anonymous Page와 달리 memory-mapped page는 파일 기반 매핑입니다. 
+- page fault가 발생하면 물리적 프레임이 즉시 할당되고, 내용이 파일에서 메모리로 복사됩니다. memory-mapped page가 매핑 해제되거나 교체(스왑아웃)되면 콘텐츠의 모든 변경 사항이 파일에 반영됩니다.
+
+- 파일 매핑 메커니즘
+
+<img width="958" alt="스크린샷 2023-06-22 오후 5 23 26" src="https://github.com/Riudiu/pintos/assets/86466976/771868ef-6521-41da-8bba-4318ed2d245f">
+
+- 매핑된 파일 관리
+
+<img width="958" alt="스크린샷 2023-06-22 오후 5 26 35" src="https://github.com/Riudiu/pintos/assets/86466976/dfce081d-82de-4efd-80f4-00eff0d361f8">
+
+- munmap() 동작
+
+<img width="955" alt="스크린샷 2023-06-22 오후 5 29 47" src="https://github.com/Riudiu/pintos/assets/86466976/31963054-244f-4156-8c87-766e8dfeace1">
 
 ## PJ4. File System

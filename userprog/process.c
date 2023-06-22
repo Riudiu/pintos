@@ -100,20 +100,20 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	struct thread *curr = thread_current();
 	memcpy(&curr->parent_if, if_, sizeof(struct intr_frame));
 
-	tid_t tid = thread_create (name, PRI_DEFAULT, __do_fork, curr);
-	if (tid == TID_ERROR) {
+	tid_t pid = thread_create (name, PRI_DEFAULT, __do_fork, curr);
+	if (pid == TID_ERROR) {
 		return TID_ERROR;
 	}
 
-	struct thread *child = get_child_with_pid(tid);  // child_list안에서 만들어진 child thread를 찾음
+	struct thread *child = get_child_with_pid(pid);  // child_list안에서 만들어진 child thread를 찾음
     sema_down(&child->load_sema);                    // 자식이 메모리에 load 될때까지 기다림(blocked)
 	
-    if (child->exit_status == TID_ERROR) {
+    // if (child->exit_status == TID_ERROR) {
         // list_remove (&child->child_elem);     // 자식이 종료되었으므로 자식 리스트에서 제거
 		// sema_up (&child->exit_sema);          // 자식이 종료되고 스케줄링이 이어질 수 있도록 부모에게 시그널 전송
-		return TID_ERROR;
-    }
-	return tid;
+		// return TID_ERROR;
+    // }
+	return pid;
 }
 
 #ifndef VM
@@ -140,7 +140,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
-	newpage = palloc_get_page(PAL_USER);
+	newpage = palloc_get_page(PAL_USER | PAL_ZERO);
 	if (newpage == NULL) {
 		return false;
 	}
@@ -240,7 +240,7 @@ process_exec (void *f_name) {
 
 	/* We first kill the current context */
 	process_cleanup ();
-
+	
 	/// for argument parsing
 	char *argv[64]; 	// argument 배열
 	int argc = 0;		// argument 개수
@@ -258,8 +258,7 @@ process_exec (void *f_name) {
 	success = load (file_name, &_if);
 	
 	 /* If load failed, quit. */
-    if (!success)
-    {
+    if (!success) {
         palloc_free_page(file_name);
         return -1;
     }
@@ -368,7 +367,8 @@ process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
-	supplemental_page_table_kill (&curr->spt);
+	if(!hash_empty(&curr->spt.spt_hash))
+		supplemental_page_table_kill (&curr->spt);
 #endif
 
 	uint64_t *pml4;
@@ -718,7 +718,7 @@ install_page (void *upage, void *kpage, bool writable) {
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-static bool
+bool
 lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */

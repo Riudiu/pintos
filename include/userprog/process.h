@@ -11,6 +11,7 @@ void process_exit (void);
 void process_activate (struct thread *next);
 
 void argument_stack(char **argv, int argc, void **rsp);
+bool lazy_load_segment(struct page *page, void *aux);
 
 struct lazy_load_arg
 {

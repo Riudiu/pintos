@@ -24,7 +24,7 @@ vm_anon_init (void) {
 	// swap_disk = NULL;
 	swap_disk = disk_get(1,1);
 	list_init(&swap_table);
-	// lock_init(&swap_table_lock);
+	lock_init(&swap_table_lock);
 
 	size_t swap_size = disk_size(swap_disk) / 8;
 	for (disk_sector_t i = 0; i < swap_size; i++)
@@ -32,9 +32,9 @@ vm_anon_init (void) {
 		struct slot *slot = (struct slot *)malloc(sizeof(struct slot));
 		slot->page = NULL;
 		slot->slot_no = i;
-		// lock_acquire(&swap_table_lock);
+		lock_acquire(&swap_table_lock);
 		list_push_back(&swap_table, &slot->swap_elem);
-		// lock_release(&swap_table_lock);
+		lock_release(&swap_table_lock);
 	}
 }
 
@@ -66,7 +66,7 @@ anon_destroy (struct page *page) {
 	struct list_elem *e;
 	struct slot *slot;
 
-	// lock_acquire(&swap_table_lock);
+	lock_acquire(&swap_table_lock);
 	for (e = list_begin(&swap_table); e != list_end(&swap_table); e = list_next(e))
 	{
 		slot = list_entry(e, struct slot, swap_elem);
@@ -76,5 +76,5 @@ anon_destroy (struct page *page) {
 			break;
 		}
 	}
-	// lock_release(&swap_table_lock);
+	lock_release(&swap_table_lock);
 }
