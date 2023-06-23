@@ -13,6 +13,7 @@
 #include "userprog/process.h"
 #include "lib/kernel/stdio.h"
 #include "include/lib/stdio.h"
+#include "include/vm/vm.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -152,7 +153,7 @@ void check_address(void *addr) {
 }
 static struct file *find_file_by_fd(int fd) {
     struct thread *curr = thread_current();
-    if (fd < 0 || fd >= FDT_COUNT_LIMIT) {
+    if (fd < 2 || fd >= FDT_COUNT_LIMIT) {
         return NULL;
     }
     return curr->fd_table[fd];
@@ -181,7 +182,7 @@ int add_file_to_fdt(struct file *file) {
 void remove_file_from_fdt(int fd) {
     struct thread *curr = thread_current();
 	struct file **fdt = curr->fd_table;
-	if (fd < 0 || fd >= FDT_COUNT_LIMIT)
+	if (fd < 2 || fd >= FDT_COUNT_LIMIT)
 		return NULL;
 	fdt[fd] = NULL;
 }
@@ -299,6 +300,10 @@ read (int fd, void *buffer, unsigned size) {
 		struct file *file = find_file_by_fd(fd);
 		if (file == NULL) {
 			return -1;
+		}
+		struct page *page = spt_find_page(&thread_current()->spt, buffer);
+		if (page && !page->writable) {
+			exit(-1);
 		}
 		// lock_acquire(&filesys_lock);
 		bytes_read = file_read(file, buffer, size);
