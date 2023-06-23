@@ -22,7 +22,7 @@ void
 vm_anon_init (void) {
 	/* TODO: Set up the swap_disk. */
 	// swap_disk = NULL;
-	swap_disk = disk_get(1,1);
+	swap_disk = disk_get(1, 1);
 	list_init(&swap_table);
 	lock_init(&swap_table_lock);
 
@@ -45,18 +45,70 @@ anon_initializer (struct page *page, enum vm_type type, void *kva) {
 	page->operations = &anon_ops;
 
 	struct anon_page *anon_page = &page->anon;
+	// 초기화 함수가 호출되는 시점은 page가 매핑된 상태이므로 swap_slot을 차지하지 않는다.
+	anon_page->slot_no = -1; 
+
+	return true;
 }
 
 /* Swap in the page by read contents from the swap disk. */
 static bool
 anon_swap_in (struct page *page, void *kva) {
 	struct anon_page *anon_page = &page->anon;
+	disk_sector_t page_slot_no = anon_page->slot_no; // page가 저장된 slot_no
+
+	struct list_elem *e;
+	struct slot *slot;
+
+	lock_acquire(&swap_table_lock);
+	for (e = list_begin(&swap_table); e != list_end(&swap_table); e = list_next(e)) 
+	{
+		slot = list_entry(e, struct slot, swap_elem);
+		if (slot->slot_no == page_slot_no) {
+			for (int i = 0; i < 8; i++) {
+				disk_read(swap_disk, page_slot_no * 8 + i, kva + DISK_SECTOR_SIZE * i);
+			}
+			slot->page = NULL;
+			anon_page->slot_no = -1;
+
+			lock_release(&swap_table_lock);
+			return true;
+		}
+	}
+	lock_release(&swap_table_lock);
+	return false;
 }
 
 /* Swap out the page by writing contents to the swap disk. */
 static bool
 anon_swap_out (struct page *page) {
+	if (page == NULL) return false;
 	struct anon_page *anon_page = &page->anon;
+
+	struct list_elem *e;
+	struct slot *slot;
+
+	lock_acquire(&swap_table_lock);
+	for (e = list_begin(&swap_table); e != list_end(&swap_table); e = list_next(e)) 
+	{
+		slot = list_entry(e, struct slot, swap_elem);
+		if (slot->page == NULL) {
+			for (int i = 0; i < 8; i++) {
+				disk_write(swap_disk, slot->slot_no * 8 + i, page->va + DISK_SECTOR_SIZE * i);
+			}
+			anon_page->slot_no = slot->slot_no;
+			slot->page = page;
+
+			page->frame->page = NULL;
+			page->frame = NULL;
+
+			pml4_clear_page(thread_current()->pml4, page->va);
+			lock_release(&swap_table_lock);
+			return true;
+		}
+	}
+	lock_release(&swap_table_lock);
+	return false;
 }
 
 /* Destroy the anonymous page. PAGE will be freed by the caller. */
@@ -70,8 +122,7 @@ anon_destroy (struct page *page) {
 	for (e = list_begin(&swap_table); e != list_end(&swap_table); e = list_next(e))
 	{
 		slot = list_entry(e, struct slot, swap_elem);
-		if (slot->slot_no == anon_page->slot_no)
-		{
+		if (slot->slot_no == anon_page->slot_no) {
 			slot->page = NULL;
 			break;
 		}
