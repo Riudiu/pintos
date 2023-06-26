@@ -100,8 +100,12 @@ static const char *intr_names[INTR_CNT];
    sleep, although they may invoke intr_yield_on_return() to
    request that a new process be scheduled just before the
    interrupt returns. */
-static bool in_external_intr;   /* Are we processing an external interrupt? */
-static bool yield_on_return;    /* Should we yield on interrupt return? */
+// 외부 인터럽트는 타이머와 같은 CPU 외부의 장치에 의해 생성된 인터럽트입니다. 
+// 외부 인터럽트는 인터럽트가 꺼진 상태에서 실행되므로 둥지를 틀지도 않고, 미리 선점되지도 않습니다. 
+// 외부 인터럽트 핸들러는 intr_yield_on_return()을 호출하여 인터럽트가 반환되기 직전에 새 프로세스를 
+// 예약하도록 요청할 수도 있지만 절전 모드로 전환되지 않을 수도 있습니다.
+static bool in_external_intr;   /* Are we processing an external interrupt? */ // 외부 인터럽트를 처리하고 있나요?
+static bool yield_on_return;    /* Should we yield on interrupt return? */     // 인터럽트 리턴을 양보해야 할까요?
 
 /* Programmable Interrupt Controller helpers. */
 static void pic_init (void);
@@ -132,6 +136,7 @@ intr_set_level (enum intr_level level) {
 }
 
 /* Enables interrupts and returns the previous interrupt status. */
+// 인터럽트를 사용하도록 설정하고 이전 인터럽트 상태를 반환합니다.
 enum intr_level
 intr_enable (void) {
 	enum intr_level old_level = intr_get_level ();
@@ -254,6 +259,7 @@ intr_register_int (uint8_t vec_no, int dpl, enum intr_level level,
 
 /* Returns true during processing of an external interrupt
    and false at all other times. */
+// 외부 인터럽트를 처리하는 동안 true를 반환하고 다른 시간에는 false를 반환합니다.
 bool
 intr_context (void) {
 	return in_external_intr;
@@ -328,6 +334,9 @@ pic_end_of_interrupt (int irq) {
    function is called by the assembly language interrupt stubs in
    intr-stubs.S.  FRAME describes the interrupt and the
    interrupted thread's registers. */
+// 모든 인터럽트, 장애 및 예외에 대한 처리기입니다. 
+// 이 함수는 int-stub의 어셈블리 언어 인터럽트 스텁에 의해 호출된다.
+// S. 프레임은 인터럽트 및 인터럽트된 스레드의 레지스터를 설명합니다.
 void
 intr_handler (struct intr_frame *frame) {
 	bool external;
@@ -337,6 +346,8 @@ intr_handler (struct intr_frame *frame) {
 	   We only handle one at a time (so interrupts must be off)
 	   and they need to be acknowledged on the PIC (see below).
 	   An external interrupt handler cannot sleep. */
+	// 외부 인터럽트는 특별합니다. 우리는 한 번에 하나만 처리하고(따라서 인터럽트는 반드시 꺼져야 함), 
+	// 그것들은 PIC에서 승인되어야 한다(아래 참조). 외부 인터럽트 핸들러는 절전 모드로 전환할 수 없습니다.
 	external = frame->vec_no >= 0x20 && frame->vec_no < 0x30;
 	if (external) {
 		ASSERT (intr_get_level () == INTR_OFF);
@@ -347,6 +358,7 @@ intr_handler (struct intr_frame *frame) {
 	}
 
 	/* Invoke the interrupt's handler. */
+	// 인터럽트의 핸들러를 호출합니다.
 	handler = intr_handlers[frame->vec_no];
 	if (handler != NULL)
 		handler (frame);
@@ -354,14 +366,17 @@ intr_handler (struct intr_frame *frame) {
 		/* There is no handler, but this interrupt can trigger
 		   spuriously due to a hardware fault or hardware race
 		   condition.  Ignore it. */
+		// 핸들러는 없지만 하드웨어 장애 또는 하드웨어 경합 조건으로 인해 이 인터럽트가 갑자기 트리거될 수 있습니다. 무시해요.
 	} else {
 		/* No handler and not spurious.  Invoke the unexpected
 		   interrupt handler. */
+		// 핸들러도 없고 가짜도 아닙니다. 예기치 않은 인터럽트 핸들러를 호출합니다.
 		intr_dump_frame (frame);
 		PANIC ("Unexpected interrupt");
 	}
 
 	/* Complete the processing of an external interrupt. */
+	// 외부 인터럽트 처리를 완료합니다.
 	if (external) {
 		ASSERT (intr_get_level () == INTR_OFF);
 		ASSERT (intr_context ());
