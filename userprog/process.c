@@ -355,7 +355,9 @@ process_exit (void) {
 	file_close(curr->running);  // for rox- (실행중에 수정 못하도록)
 
 	process_cleanup();
+#ifdef VM
 	hash_destroy(&curr->spt.spt_hash, NULL); 
+#endif
 
 	sema_up(&curr->wait_sema);
 	sema_down(&curr->exit_sema);

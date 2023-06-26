@@ -127,12 +127,14 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CLOSE:
 			close(f->R.rdi);
 			break;
+#ifdef VM
 		case SYS_MMAP:
 			f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
 			break;
 		case SYS_MUNMAP:
 			munmap(f->R.rdi);
 			break;
+#endif
 		default:
 			exit(-1);
 			break;
@@ -301,10 +303,12 @@ read (int fd, void *buffer, unsigned size) {
 		if (file == NULL) {
 			return -1;
 		}
+#ifdef VM		
 		struct page *page = spt_find_page(&thread_current()->spt, buffer);
 		if (page && !page->writable) {
 			exit(-1);
 		}
+#endif
 		// lock_acquire(&filesys_lock);
 		bytes_read = file_read(file, buffer, size);
 		// lock_release(&filesys_lock);
@@ -360,6 +364,7 @@ close (int fd) {
 	remove_file_from_fdt(fd);
 }
 
+#ifdef VM
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 {
 	if (!addr || addr != pg_round_down(addr))
@@ -388,3 +393,4 @@ void munmap(void *addr)
 {
 	do_munmap(addr);
 }
+#endif
