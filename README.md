@@ -146,3 +146,22 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 
 
 ## PJ4. File System
+
+제대로 동작되는지 테스트 결과 확인
+
+    $ source ./activate
+    $ cd filesys
+    $ make check
+
+### 4-1) Indexed and Extensible Files
+
+- 기존의 파일 시스템은 파일을 단일 범위(연속 할당)로 파일을 할당하는데, 이는 외부 단편화에 취약합니다. On-disk inode 구조를 수정하여 이 문제를 해결해야 합니다. 
+- 그리고 기본 파일 시스템에선 파일 크기는 파일이 생성될 때 정해집니다. 하지만 대부분 현대 파일 시스템에서는 파일은 처음에 사이즈 0으로 생성되고 매 시간 write가 완료될 때마다 크기가 확장됩니다.
+- 파일 시스템 할당을 더 쉽게 구현하기 위해 주어진 스켈레톤 코드로 FAT(File Allocation Table)를 구현하고, 파일에 쓰기 동작을 수행할 때에 디스크 블록을 할당 받아 사용하도록 구현하여 파일 크기가 생성 시에 고정되지 않고, 확장 가능하도록 만드는 것이 이번 목표입니다. 
+
+- 수정 전
+<img width="924" alt="스크린샷 2023-06-26 오후 8 28 40" src="https://github.com/Riudiu/pintos/assets/86466976/0a6ab225-9c71-4908-bb9b-09bebb28c636">
+
+- 수정 후
+<img width="924" alt="스크린샷 2023-06-26 오후 8 28 53" src="https://github.com/Riudiu/pintos/assets/86466976/0b42fc67-b0e5-4ce8-b048-fc2f453c22e6">
+
