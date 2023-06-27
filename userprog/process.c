@@ -23,6 +23,9 @@
 #include "vm/vm.h"
 #include "hash.h"
 #endif
+#ifdef EFILESYS
+#include "filesys/directory.h"
+#endif
 
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
@@ -69,6 +72,7 @@ initd (void *f_name) {
 	supplemental_page_table_init (&thread_current ()->spt);
 #endif
 
+	set_current_directory(dir_open_root());
 	process_init ();
 
 	if (process_exec (f_name) < 0)
@@ -209,6 +213,9 @@ __do_fork (void *aux) {
 		current->fd_table[i] = file;
 	}
 	current->next_fd = parent->next_fd;
+
+	ASSERT(parent->wd != NULL);
+	current->wd = dir_reopen(parent->wd); // set_current_directory
 
 	/* Release the parent waiting for the load to complete */
 	sema_up(&current->load_sema);
@@ -357,6 +364,9 @@ process_exit (void) {
 	process_cleanup();
 #ifdef VM
 	hash_destroy(&curr->spt.spt_hash, NULL); 
+#endif
+#ifdef EFILESYS
+	dir_close(curr->wd);
 #endif
 
 	sema_up(&curr->wait_sema);

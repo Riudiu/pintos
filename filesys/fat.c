@@ -62,6 +62,14 @@ fat_init (void) {
 	fat_bitmap = bitmap_create(fat_fs->fat_length);
 }
 
+void init_fat_bitmap(void) {
+	for(int clst = 0; clst < fat_fs->fat_length; clst++) {
+		// FAT occupied with EOC or any value (next cluster)
+		if(fat_fs->fat[clst])
+			bitmap_set(fat_bitmap, clst, true);
+	}
+}
+
 void
 fat_open (void) {
 	fat_fs->fat = calloc (fat_fs->fat_length, sizeof (cluster_t));
@@ -76,8 +84,7 @@ fat_open (void) {
 	for (unsigned i = 0; i < fat_fs->bs.fat_sectors; i++) {
 		bytes_left = fat_size_in_bytes - bytes_read;
 		if (bytes_left >= DISK_SECTOR_SIZE) {
-			disk_read (filesys_disk, fat_fs->bs.fat_start + i,
-			           buffer + bytes_read);
+			disk_read (filesys_disk, fat_fs->bs.fat_start + i, buffer + bytes_read);
 			bytes_read += DISK_SECTOR_SIZE;
 		} else {
 			uint8_t *bounce = malloc (DISK_SECTOR_SIZE);

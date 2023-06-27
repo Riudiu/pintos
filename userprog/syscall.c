@@ -10,6 +10,9 @@
 #include "intrinsic.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "filesys/directory.h"
+#include "filesys/fat.h"
+#include "filesys/inode.h"
 #include "userprog/process.h"
 #include "lib/kernel/stdio.h"
 #include "include/lib/stdio.h"
@@ -41,11 +44,12 @@ void close (int fd);
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap(void *addr);
 
-struct file {
-	struct inode *inode;        /* File's inode. */
-	off_t pos;                  /* Current position. */
-	bool deny_write;            /* Has file_deny_write() been called? */
-};
+bool chdir (const char *dir);
+bool mkdir (const char *dir);
+bool readdir (int fd, char *name);
+bool isdir (int fd);
+int inumber (int fd);
+int symlink (const char *target, const char *linkpath);
 
 /* System call.
  *
@@ -60,8 +64,11 @@ struct file {
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
+struct lock file_rw_lock;
+
 void
 syscall_init (void) {
+	lock_init (&file_rw_lock);
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
 			((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
@@ -135,6 +142,24 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			munmap(f->R.rdi);
 			break;
 #endif
+		case SYS_CHDIR:
+			f->R.rax = chdir(f->R.rdi);
+			break;
+		case SYS_MKDIR:
+			f->R.rax = mkdir(f->R.rdi);
+			break;
+		case SYS_READDIR:
+			f->R.rax = readdir(f->R.rdi, f->R.rsi);
+			break;
+		case SYS_ISDIR:
+			f->R.rax = isdir(f->R.rdi);
+			break;
+		case SYS_INUMBER:
+			f->R.rax = inumber(f->R.rdi);
+			break;
+		case SYS_SYMLINK:
+			f->R.rax = symlink(f->R.rdi, f->R.rsi);
+			break;
 		default:
 			exit(-1);
 			break;
@@ -309,9 +334,9 @@ read (int fd, void *buffer, unsigned size) {
 			exit(-1);
 		}
 #endif
-		// lock_acquire(&filesys_lock);
+		lock_acquire(&file_rw_lock);
 		bytes_read = file_read(file, buffer, size);
-		// lock_release(&filesys_lock);
+		lock_release(&file_rw_lock);
 	}
 	return bytes_read;
 }
@@ -327,14 +352,18 @@ write (int fd, const void *buffer, unsigned size) {
 		bytes_write = size;
 	}
 	else {
-		if (fd < 2)
-			return -1;
+		if (fd < 2) return -1;
+
 		struct file *file = find_file_by_fd(fd);
-		if (file == NULL)
+		if (file == NULL) {
 			return -1;
-		// lock_acquire(&filesys_lock);
+		}
+		if (inode_isdir(file->inode)) {
+			return -1;
+		}
+		lock_acquire(&file_rw_lock);
 		bytes_write = file_write(file, buffer, size);
-		// lock_release(&filesys_lock);
+		lock_release(&file_rw_lock);
 	}
 	return bytes_write;
 }
@@ -360,8 +389,20 @@ void
 close (int fd) {
 	struct file *file = find_file_by_fd(fd);
 	if (file == NULL) return;
-	file_close(file);
+
+	if (file <= 2) return;
 	remove_file_from_fdt(fd);
+
+	if(fd <= 1 || file <= 2) return;
+
+	if (inode_isdir(file->inode)) {  
+		remove_file_from_fdt(fd);
+		dir_close((struct dir*) file);
+	}
+	else if (file->dupCount == 0)
+		file_close(file);
+	else
+		file->dupCount--;
 }
 
 #ifdef VM
@@ -394,3 +435,154 @@ void munmap(void *addr)
 	do_munmap(addr);
 }
 #endif
+
+bool
+chdir (const char *dir_input) {
+	struct path* path = parse_filepath(dir_input);
+	if(path->dircount == -1) {
+		return false;
+	}
+	struct dir* subdir = find_subdir(path->dirnames, path->dircount);
+	if(subdir == NULL) {
+		dir_close (subdir);
+		free_path(path);
+		return false;
+	}
+
+	if(subdir == NULL) return false;	
+
+	if (!strcmp(path->filename, "root")){
+		set_current_directory(dir_open_root());
+		dir_close(subdir);
+		free_path(path);
+		return true;
+	}
+
+	struct inode *inode = NULL; // inode of subdirectory or file
+	dir_lookup(subdir, path->filename, &inode);
+
+	if (inode == NULL) return false;
+	set_current_directory(dir_open(inode));
+
+	dir_close (subdir);
+	free_path(path);
+
+	return true;
+}
+
+bool mkdir (const char *dir_input){
+	bool success = false;
+
+	if(strlen(dir_input) == 0) return false;
+
+	struct path* path = parse_filepath(dir_input);
+	if(path->dircount == -1) {
+		return false;
+	}
+	struct dir* subdir = find_subdir(path->dirnames, path->dircount);
+	if(subdir == NULL) {
+		goto done;
+	}
+
+	// create new directory named 'path->filename'
+	cluster_t clst = fat_create_chain(0);
+	if(clst == 0){ // FAT is full (= disk is full)
+		goto done;
+	}
+	disk_sector_t sect = cluster_to_sector(clst);
+
+	dir_create(sect, DISK_SECTOR_SIZE / sizeof(struct dir_entry)); //실제 directory obj 생성
+
+	struct dir *dir = dir_open(inode_open(sect));
+	dir_add(dir, ".", sect);
+	dir_add(dir, "..", inode_get_inumber(dir_get_inode(subdir)));
+	dir_close(dir);
+
+	success = dir_add(subdir, path->filename, cluster_to_sector(clst));
+
+done: 
+	dir_close (subdir);
+	free_path(path);
+
+	return success;
+}
+
+bool
+readdir (int fd, char *name) {
+	struct file *file = find_file_by_fd(fd);
+	if (inode_isdir(file->inode)){
+		return dir_readdir((struct dir *)file, name);
+	}
+	else 
+		return false;
+}
+
+bool
+isdir (int fd) {
+	struct file *file = find_file_by_fd(fd);
+	return inode_isdir(file->inode);
+}
+
+int
+inumber (int fd) {
+	struct file *file = find_file_by_fd(fd);
+	return file->inode->sector;
+}
+
+int
+symlink (const char *target, const char *linkpath) {
+	bool lazy = false;
+	//parse link path
+	struct path* path_link = parse_filepath(linkpath);
+	if(path_link->dircount == -1) {
+		return -1;
+	}
+	struct dir* subdir_link = find_subdir(path_link->dirnames, path_link->dircount);
+	if(subdir_link == NULL) {
+		dir_close (subdir_link);
+		free_path(path_link);
+		return -1;
+	}
+
+	//parse target path
+	struct path* path_tar = parse_filepath(target);
+	if(path_tar->dircount == -1) {
+		return -1;
+	}
+	struct dir* subdir_tar = find_subdir(path_tar->dirnames, path_tar->dircount);
+	if(subdir_tar == NULL) {
+		dir_close (subdir_tar);
+		free_path(path_tar);
+		return -1;
+	}
+
+	//find target inode
+	struct inode* inode = NULL;
+	dir_lookup(subdir_tar, path_tar->filename, &inode);
+	if(inode == NULL) {
+		//lazy symlink(target not created yet)
+		inode = dir_get_inode(subdir_tar);
+		lazy = true;
+	}
+
+	//add to link path
+	dir_add(subdir_link, path_link->filename, inode_get_inumber(inode));
+	set_entry_symlink(subdir_link, path_link->filename, true);
+	if (lazy){ // create a lazy link to some file
+		set_entry_lazytar(subdir_link, path_link->filename, path_tar->filename);
+	}
+	else{ // if target is a lazy link to some file; propagate lazy link
+		struct dir_entry target_entry;
+		off_t ofs;
+		lookup(subdir_tar, path_tar->filename, &target_entry, &ofs);
+		if(strcmp("lazy", target_entry.lazy)){
+			set_entry_lazytar(subdir_link, path_link->filename, target_entry.lazy);
+		}
+	}
+
+	dir_close (subdir_link);
+	free_path(path_link);
+	dir_close (subdir_tar);
+	free_path(path_tar);
+	return 0;
+}

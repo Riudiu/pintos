@@ -405,3 +405,9 @@ off_t
 inode_length (const struct inode *inode) {
 	return inode->data.length;
 }
+
+/* Returns if this inode is directory */
+bool 
+inode_isdir (struct inode *inode) {
+  return inode->data.is_dir;
+}

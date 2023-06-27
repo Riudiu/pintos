@@ -165,3 +165,14 @@ AWS EC2 Ubuntu 18.04 (x86_64)
 - 수정 후
 <img width="924" alt="스크린샷 2023-06-26 오후 8 28 53" src="https://github.com/Riudiu/pintos/assets/86466976/0b42fc67-b0e5-4ce8-b048-fc2f453c22e6">
 
+
+### 4-2) Subdirectories and Soft Link
+
+- 현재 핀토스의 파일 시스템은 root 디렉토리에 모든 파일이 존재하는 단일 디렉토리 구조입니다. 하위 디렉토리의 생성 및 수정과 소프트 링크를 위한 시스템 콜들을 구현하여 이를 평범한 UNIX 처럼 subdirectory가 지원되도록 하는 것이 목표입니다.
+- 즉 기존 파일 시스템에서는 모든 파일이 하나의 디렉터리에 저장됩니다. 디렉터리 항목이 파일 또는 다른 디렉터리를 가리키도록 수정하여 디렉터리 계층 구조를 만들어야 합니다. 
+
+- 구현 전
+<img width="952" alt="스크린샷 2023-06-27 오후 11 47 54" src="https://github.com/Riudiu/pintos/assets/86466976/1dc84193-bfa5-4bd4-8183-636279058d6c">
+
+- 구현 후
+<img width="956" alt="스크린샷 2023-06-27 오후 11 48 25" src="https://github.com/Riudiu/pintos/assets/86466976/68af3f5f-afa8-40b2-8345-f6da33ff8baf">

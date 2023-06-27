@@ -133,7 +133,9 @@ struct thread {
 	struct supplemental_page_table spt;
 	void *rsp;
 #endif
-
+#ifdef EFILESYS
+	struct dir *wd;                     /* current working directory */
+#endif
 	/* Owned by thread.c. */
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
